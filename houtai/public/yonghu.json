@@ -1,0 +1,217 @@
+﻿{
+  "code": 0,
+  "data": [
+    {
+      "path": "/home",
+      "name": "home",
+      "component": "home",
+      "meta": {
+        "title": "message.router.home",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": true,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "iconfont icon-shouye"
+      }
+    },
+    {
+      "path": "/yonghuxinxigrzlgl",
+      "name": "yonghuxinxigrzlgl",
+      "component": "layout/routerView/parent",
+      "meta": {
+        "title": "个人资料管理",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-s-grid"
+      },
+      "children": [
+        {
+          "path": "/yonghuxinxi_updt2/1",
+          "name": "yonghuxinxi_updt2",
+          "component": "yonghuxinxi/personal/index",
+          "meta": {
+            "title": "修改个人资料",
+            "isLink": "",
+            "isHide": false,
+            "isKeepAlive": true,
+            "isAffix": false,
+            "isIframe": false,
+            "roles": [
+              "yonghu"
+            ],
+            "icon": "iconfont icon-caidan"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/fbdingdanyonghugl",
+      "name": "fbdingdanyonghugl",
+      "component": "layout/routerView/parent",
+      "meta": {
+        "title": "我的卖出",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-s-grid"
+      },
+      "children": [
+        {
+          "path": "/fbdingdan/1",
+          "name": "fbdingdan",
+          "component": "fbdingdan/index",
+          "meta": {
+            "title": "订单查询",
+            "isLink": "",
+            "isHide": false,
+            "isKeepAlive": true,
+            "isAffix": false,
+            "isIframe": false,
+            "roles": [
+              "yonghu"
+            ],
+            "icon": "iconfont icon-caidan"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/dingdanyonghugl",
+      "name": "dingdanyonghugl",
+      "component": "layout/routerView/parent",
+      "meta": {
+        "title": "我的买入",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-s-grid"
+      },
+      "children": [
+        {
+          "path": "/ershouwupin_dingdan/1",
+          "name": "ershouwupin_dingdan",
+          "component": "dingdan/ershouwupin_dingdan",
+          "meta": {
+            "title": "订单添加",
+            "isLink": "",
+            "isHide": false,
+            "isKeepAlive": true,
+            "isAffix": false,
+            "isIframe": false,
+            "roles": [
+              "yonghu"
+            ],
+            "icon": "iconfont icon-caidan"
+          }
+        },
+        {
+          "path": "/dingdan/1",
+          "name": "dingdan",
+          "component": "dingdan/index",
+          "meta": {
+            "title": "订单查询",
+            "isLink": "",
+            "isHide": false,
+            "isKeepAlive": true,
+            "isAffix": false,
+            "isIframe": false,
+            "roles": [
+              "yonghu"
+            ],
+            "icon": "iconfont icon-caidan"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/ershouwupinyonghugl",
+      "name": "ershouwupinyonghugl",
+      "component": "layout/routerView/parent",
+      "meta": {
+        "title": "二手物品管理",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-s-grid"
+      },
+      "children": [
+        {
+          "path": "/ershouwupin/1",
+          "name": "ershouwupin",
+          "component": "ershouwupin/index",
+          "meta": {
+            "title": "二手物品查询",
+            "isLink": "",
+            "isHide": false,
+            "isKeepAlive": true,
+            "isAffix": false,
+            "isIframe": false,
+            "roles": [
+              "yonghu"
+            ],
+            "icon": "iconfont icon-caidan"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/dingdanAdd",
+      "name": "dingdanAdd",
+      "component": "dingdan/dingdan_addlbdq",
+      "meta": {
+        "title": "订单添加",
+        "isLink": "",
+        "isHide": true,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-school"
+      }
+    },
+    {
+      "path": "/resetPass",
+      "name": "resetPass",
+      "component": "resetPass/index",
+      "meta": {
+        "title": "message.router.resetPass",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": [
+          "yonghu"
+        ],
+        "icon": "el-icon-s-grid"
+      }
+    }
+  ]
+}

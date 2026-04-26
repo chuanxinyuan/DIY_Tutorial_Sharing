@@ -1,0 +1,4 @@
+-- 图片与头像说明（无需执行，仅供参考）
+-- 1. 教程封面、步骤配图、用户头像在库中存相对路径，如 /files/download/{file表主键}
+-- 2. 前台上传接口：POST /front/v2/upload/image，multipart 字段名 file，需与 Spring Boot 同时运行
+-- 3. tp_user.avatar_url 为 NULL 或空时，前端使用 Element 默认人像图标展示

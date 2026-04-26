@@ -1,0 +1,65 @@
+{
+  "code": 0,
+  "data": [
+    {
+      "path": "/home",
+      "name": "home",
+      "component": "home",
+      "meta": {
+        "title": "管理首页",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": true,
+        "isIframe": false,
+        "roles": ["guanliyuan"],
+        "icon": "iconfont icon-shouye"
+      }
+    },
+    {
+      "path": "/tp_user_manage/1",
+      "name": "tp_user_manage",
+      "component": "tp_user_manage/index",
+      "meta": {
+        "title": "用户管理",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": ["guanliyuan"],
+        "icon": "el-icon-user-solid"
+      }
+    },
+    {
+      "path": "/tp_content_manage/1",
+      "name": "tp_content_manage",
+      "component": "tp_content_manage/index",
+      "meta": {
+        "title": "内容管控",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": ["guanliyuan"],
+        "icon": "el-icon-document-remove"
+      }
+    },
+    {
+      "path": "/tp_kit_manage/1",
+      "name": "tp_kit_manage",
+      "component": "tp_kit_manage/index",
+      "meta": {
+        "title": "商品管理",
+        "isLink": "",
+        "isHide": false,
+        "isKeepAlive": true,
+        "isAffix": false,
+        "isIframe": false,
+        "roles": ["guanliyuan"],
+        "icon": "el-icon-s-shop"
+      }
+    }
+  ]
+}

@@ -18,10 +18,10 @@ export const tpAdminResetPassword = (params) => request({
   data: params,
 });
 
-export const tpAdminTutorials = (adminUserId) => request({
+export const tpAdminTutorials = (adminUserId, filters = {}) => request({
   url: '/front/v2/admin/tutorials',
   method: 'get',
-  params: { adminUserId },
+  params: { adminUserId, ...filters },
 });
 
 export const tpAdminTutorialDetail = (adminUserId, tutorialId) => request({
@@ -42,10 +42,10 @@ export const tpAdminTutorialBanPublic = (params) => request({
   data: params,
 });
 
-export const tpAdminPosts = (adminUserId) => request({
+export const tpAdminPosts = (adminUserId, filters = {}) => request({
   url: '/front/v2/admin/posts',
   method: 'get',
-  params: { adminUserId },
+  params: { adminUserId, ...filters },
 });
 
 export const tpAdminPostSetStatus = (params) => request({
@@ -60,10 +60,10 @@ export const tpAdminRemovePost = (params) => request({
   data: params,
 });
 
-export const tpAdminPostComments = (adminUserId, postId) => request({
+export const tpAdminPostComments = (adminUserId, filters = {}) => request({
   url: '/front/v2/admin/post-comments',
   method: 'get',
-  params: { adminUserId, postId },
+  params: { adminUserId, ...filters },
 });
 
 export const tpAdminPostCommentSetStatus = (params) => request({
@@ -100,4 +100,27 @@ export const tpAdminKitSetStatus = (params) => request({
   url: '/front/v2/admin/kit/set-status',
   method: 'post',
   data: params,
+});
+
+export const tpAdminTutorialComments = (adminUserId, filters = {}) => request({
+  url: '/front/v2/admin/tutorial-comments',
+  method: 'get',
+  params: { adminUserId, ...filters },
+});
+
+export const tpAdminTutorialCommentSetStatus = (params) => request({
+  url: '/front/v2/admin/tutorial-comment/set-status',
+  method: 'post',
+  data: params,
+});
+    
+export const tpAdminRemoveTutorialComment = (params) => request({
+  url: '/front/v2/admin/tutorial-comment/remove',
+  method: 'post',
+  data: params,
+});
+export const tpAdminDashboardStats = (adminUserId) => request({
+  url: '/front/v2/admin/dashboard-stats',
+  method: 'get',
+  params: { adminUserId },
 });

@@ -31,7 +31,6 @@
           <template slot-scope="scope">
             <el-button size="mini" type="success" plain :disabled="Number(scope.row.status) === 4" @click.stop="setKitStatus(scope.row, 1)">在售</el-button>
             <el-button size="mini" type="warning" plain :disabled="Number(scope.row.status) === 4" @click.stop="setKitStatus(scope.row, 2)">停售</el-button>
-            <el-button size="mini" type="info" plain :disabled="Number(scope.row.status) === 4" @click.stop="setKitStatus(scope.row, 3)">售完</el-button>
             <el-button size="mini" type="danger" plain :disabled="Number(scope.row.status) === 4" @click.stop="removeKit(scope.row)">删除</el-button>
           </template>
         </el-table-column>

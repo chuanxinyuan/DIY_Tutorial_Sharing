@@ -43,7 +43,18 @@
       <el-input type="textarea" v-model="commentContent" :rows="3" placeholder="写下你的评论" />
       <el-button type="primary" style="margin-top: 8px" @click="comment">发表评论</el-button>
       <div v-for="c in comments" :key="c.id" class="comment">
-        <strong>{{ c.user_name || '匿名' }}</strong>：{{ c.content }}
+        <div class="comment-head">
+          <strong>{{ c.user_name || '匿名' }}</strong>
+          <span class="comment-time">{{ c.created_at || '' }}</span>
+          <el-button
+            v-if="isMyComment(c)"
+            type="text"
+            size="mini"
+            style="color:#f56c6c;margin-left:auto"
+            @click="deleteComment(c)"
+          >删除评论</el-button>
+        </div>
+        <p class="comment-text">{{ c.content }}</p>
       </div>
     </el-card>
 
@@ -212,6 +223,22 @@ export default {
         this.loadDetail()
       })
     },
+    isMyComment(c) {
+      const userId = this.getUserId()
+      return !!userId && Number(c.user_id) === Number(userId)
+    },
+    deleteComment(c) {
+      const userId = this.mustLogin()
+      if (!userId) return
+      this.$confirm('确定删除该评论吗？', '提示', { type: 'warning' }).then(() => {
+        this.$axios.delete('/api/front/v2/tutorial/comment/' + c.id, {
+          params: { userId }
+        }).then(() => {
+          this.$message.success('评论已删除')
+          this.loadDetail()
+        })
+      }).catch(() => {})
+    },
     openBuyDialog() {
       if (!this.mustLogin()) return
       if (!this.materialKit) return
@@ -271,6 +298,10 @@ export default {
 .tp-page { padding: 10px 20px; }
 .step-img { width: 240px; border-radius: 8px; }
 .comment { margin-top: 8px; padding: 8px; background: #f7f7f7; border-radius: 6px; }
+.comment-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.comment-head strong { flex-shrink: 0; }
+.comment-time { font-size: 12px; color: #909399; }
+.comment-text { margin: 0; }
 
 .dy-actions {
   display: flex;

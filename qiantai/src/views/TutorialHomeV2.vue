@@ -1,21 +1,21 @@
-<template>
+We need to apply the suggested edit to the original code. The suggested edit is essentially the entire new file content with changes: replaced el-row/el-col with div with class tutorial-masonry and masonry-item, added CSS for waterfall layout. So output the complete modified file as per suggested edit. No changes to script or other parts. Just the template changed and style added. Ensure to output exactly the suggested code, preserving existing comments? The original had no comments. The suggested edit adds comments in style section. So output as given.<template>
   <div class="tp-page">
     <el-card>
       <h2>首页推荐</h2>
       <el-tabs>
         <el-tab-pane label="热门教程">
-          <el-row :gutter="16">
-            <el-col :span="8" v-for="item in hotList" :key="'h'+item.id" style="margin-bottom:16px;">
+          <div class="tutorial-masonry">
+            <div class="masonry-item" v-for="item in hotList" :key="'h'+item.id">
               <tutorial-case-card :item="item" @preview="goDetail" />
-            </el-col>
-          </el-row>
+            </div>
+          </div>
         </el-tab-pane>
         <el-tab-pane label="最新教程">
-          <el-row :gutter="16">
-            <el-col :span="8" v-for="item in newList" :key="'n'+item.id" style="margin-bottom:16px;">
+          <div class="tutorial-masonry">
+            <div class="masonry-item" v-for="item in newList" :key="'n'+item.id">
               <tutorial-case-card :item="item" @preview="goDetail" />
-            </el-col>
-          </el-row>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -58,4 +58,21 @@ export default {
 
 <style scoped>
 .tp-page { padding: 10px 20px; }
+/* 瀑布流布局：取消等高，自然排列 */
+.tutorial-masonry {
+  column-count: 3;
+  column-gap: 16px;
+}
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+/* 响应式 */
+@media (max-width: 992px) {
+  .tutorial-masonry { column-count: 2; }
+}
+@media (max-width: 576px) {
+  .tutorial-masonry { column-count: 1; }
+}
 </style>
+

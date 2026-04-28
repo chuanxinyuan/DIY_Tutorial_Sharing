@@ -120,12 +120,7 @@
             </div>
           </el-form>
 
-          <!-- 底部链接 -->
-          <div class="form-footer">
-            <a href="#" class="link-forgot">忘记密码？</a>
-            <span class="divider">|</span>
-            <a href="#" class="link-help">帮助中心</a>
-          </div>
+                    <!-- 底部链接 -->
         </div>
       </div>
     </div>

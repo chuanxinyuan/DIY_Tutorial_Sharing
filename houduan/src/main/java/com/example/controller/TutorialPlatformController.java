@@ -20,10 +20,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 教程平台前端控制器
- * 提供教程、社区、用户、订单等功能的RESTful API接口
- */
 @RestController
 @RequestMapping("/front/v2")
 public class TutorialPlatformController {
@@ -250,7 +246,7 @@ public class TutorialPlatformController {
                 "select m.id,m.material_name from tp_tutorial_material_rel r left join tp_material_dict m on r.material_id=m.id where r.tutorial_id=?", id);
     // 获取教程评论信息
         List<Map<String, Object>> comments = jdbcTemplate.queryForList(
-                "select c.id,c.content,c.parent_comment_id,c.created_at,u.nickname as user_name " +
+                "select c.id,c.user_id,c.content,c.parent_comment_id,c.created_at,u.nickname as user_name " +
                         "from tp_tutorial_comment c left join tp_user u on c.user_id=u.id where c.tutorial_id=? and c.status=1 order by c.id desc", id);
     // 构建返回结果
         Map<String, Object> result = new HashMap<String, Object>();
@@ -569,7 +565,28 @@ public class TutorialPlatformController {
         }
         jdbcTemplate.update("insert into tp_tutorial_comment(tutorial_id,user_id,parent_comment_id,content,status) values(?,?,?,?,1)",
                 id, userId, parentCommentId, content);
-        jdbcTemplate.update("update tp_tutorial set comment_count=comment_count+1,hot_score=hot_score+1 where id=?", id);
+                jdbcTemplate.update("update tp_tutorial set comment_count=comment_count+1,hot_score=hot_score+1 where id=?", id);
+        return Result.success();
+    }
+
+    @DeleteMapping("/tutorial/comment/{commentId}")
+    public Result deleteTutorialComment(@PathVariable Long commentId, @RequestParam Long userId) {
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select id,tutorial_id,user_id,status from tp_tutorial_comment where id=?", commentId);
+        if (list.isEmpty()) {
+            return Result.error("404", "评论不存在");
+        }
+        Map<String, Object> comment = list.get(0);
+        if (toInt(comment.get("status"), 2) != 1) {
+            return Result.error("400", "评论不可删除");
+        }
+        Long ownerId = toLong(comment.get("user_id"));
+        if (!userId.equals(ownerId)) {
+            return Result.error("403", "无权限删除该评论");
+        }
+                Long tutorialId = toLong(comment.get("tutorial_id"));
+        jdbcTemplate.update("delete from tp_tutorial_comment where id=?", commentId);
+        jdbcTemplate.update("update tp_tutorial set comment_count=if(comment_count>0,comment_count-1,0) where id=?", tutorialId);
         return Result.success();
     }
 
@@ -778,12 +795,16 @@ public class TutorialPlatformController {
             scheduleTransportToAwaitingPickup(orderId);
             return Result.success();
         }
-        // 买家：待取货(3) -> 已取货(4)
+                // 买家：待取货(3) -> 已取货(4)，卖家收益转入余额
         if (userId.equals(buyerId) && current == 3 && status == 4) {
-            int n = jdbcTemplate.update("update tp_material_kit_order set order_status=4,updated_at=now() where id=? and order_status=3", orderId);
-            if (n == 0) {
+            List<Map<String, Object>> detail = jdbcTemplate.queryForList(
+                    "select total_amount from tp_material_kit_order where id=? and order_status=3", orderId);
+            if (detail.isEmpty()) {
                 return Result.error("400", "订单状态已变更");
             }
+            BigDecimal amount = (BigDecimal) detail.get(0).get("total_amount");
+            jdbcTemplate.update("update tp_material_kit_order set order_status=4,updated_at=now() where id=? and order_status=3", orderId);
+            jdbcTemplate.update("update tp_user set wallet_balance=wallet_balance+?,total_earnings=total_earnings-? where id=?", amount, amount, sellerId);
             return Result.success();
         }
         return Result.error("403", "无权限或状态非法");
@@ -902,7 +923,11 @@ public class TutorialPlatformController {
         if (tutorialId == null) {
             return Result.error(ResultCode.PARAM_LOST_ERROR.code, "tutorialId 不能为空");
         }
-        jdbcTemplate.update("update tp_tutorial set status=5 where id=?", tutorialId);
+                                jdbcTemplate.update("update tp_tutorial set status=5 where id=?", tutorialId);
+        // 级联删除该教程的收藏、点赞、评论
+        jdbcTemplate.update("delete from tp_tutorial_favorite where tutorial_id=?", tutorialId);
+        jdbcTemplate.update("delete from tp_tutorial_like where tutorial_id=?", tutorialId);
+        jdbcTemplate.update("delete from tp_tutorial_comment where tutorial_id=?", tutorialId);
         return Result.success();
     }
 
@@ -926,10 +951,54 @@ public class TutorialPlatformController {
         data.put("materials", jdbcTemplate.queryForList(
                 "select m.id,m.material_name from tp_tutorial_material_rel r left join tp_material_dict m on r.material_id=m.id where r.tutorial_id=?",
                 tutorialId));
-        List<Map<String, Object>> kits = jdbcTemplate.queryForList(
+                List<Map<String, Object>> kits = jdbcTemplate.queryForList(
                 "select id,kit_name,kit_desc,price,stock,sales_count,status from tp_material_kit where tutorial_id=? and status<>4", tutorialId);
         data.put("materialKit", kits.isEmpty() ? null : kits.get(0));
         return Result.success(data);
+    }
+
+    @GetMapping("/admin/dashboard-stats")
+    public Result adminDashboardStats(@RequestParam Long adminUserId) {
+        if (!isAdmin(adminUserId)) {
+            return Result.error("403", "仅管理员可访问");
+        }
+        Map<String, Object> stats = new HashMap<>();
+        // 用户总数 / 禁用账号
+        List<Map<String, Object>> users = jdbcTemplate.queryForList("select id,status from tp_user");
+        stats.put("userCount", users.size());
+        stats.put("disabledUserCount", users.stream().filter(u -> toInt(u.get("status"), 1) == 0).count());
+        // 教程数 / 已删除教程
+        List<Map<String, Object>> tutorials = jdbcTemplate.queryForList("select id,status from tp_tutorial");
+        stats.put("tutorialCount", tutorials.stream().filter(t -> toInt(t.get("status"), 0) != 5).count());
+        stats.put("deletedTutorialCount", tutorials.stream().filter(t -> toInt(t.get("status"), 0) == 5).count());
+        // 帖子数 / 已删除帖子
+        List<Map<String, Object>> posts = jdbcTemplate.queryForList("select id,status from tp_community_post");
+        stats.put("postCount", posts.stream().filter(p -> toInt(p.get("status"), 0) != 3).count());
+        stats.put("deletedPostCount", posts.stream().filter(p -> toInt(p.get("status"), 0) == 3).count());
+                                // 评论总数（与评论管理列表一致：排除已删帖子的评论和已删除评论）+ 已删除评论（status=3）
+                List<Map<String, Object>> visiblePostComments = jdbcTemplate.queryForList(
+                        "select c.id from tp_community_post_comment c " +
+                        "left join tp_community_post p on c.post_id=p.id where p.status<>3 and c.status<>3");
+                List<Map<String, Object>> tutorialComments = jdbcTemplate.queryForList("select id,status from tp_tutorial_comment");
+                long visibleTutorialComments = tutorialComments.stream().filter(c -> toInt(c.get("status"), 2) != 3).count();
+                long deletedTutorialComments = tutorialComments.stream().filter(c -> toInt(c.get("status"), 2) == 3).count();
+                List<Map<String, Object>> allPostComments = jdbcTemplate.queryForList("select id,status from tp_community_post_comment");
+                long deletedPostComments = allPostComments.stream().filter(c -> toInt(c.get("status"), 2) == 3).count();
+                stats.put("commentCount", visiblePostComments.size() + visibleTutorialComments);
+                stats.put("deletedCommentCount", deletedPostComments + deletedTutorialComments);
+                // 材料包总数（与商品管理一致：仅公开教程且未删除）/ 已删除材料包
+        List<Map<String, Object>> activeKits = jdbcTemplate.queryForList(
+                "select k.id from tp_material_kit k left join tp_tutorial t on k.tutorial_id=t.id where k.status<>4 and t.status=2");
+        List<Map<String, Object>> allKits = jdbcTemplate.queryForList("select id,status from tp_material_kit");
+        stats.put("kitCount", activeKits.size());
+        stats.put("deletedKitCount", allKits.stream().filter(k -> toInt(k.get("status"), 1) == 4).count());
+        // 近期高热帖子
+        List<Map<String, Object>> hotPosts = jdbcTemplate.queryForList(
+                "select p.id,p.title,p.hot_score,p.comment_count,u.nickname as author_name " +
+                "from tp_community_post p left join tp_user u on p.author_user_id=u.id " +
+                "where p.status<>3 order by p.hot_score desc limit 8");
+        stats.put("hotPosts", hotPosts);
+        return Result.success(stats);
     }
 
     /** 禁止公开：前台仅展示 status=2，3 为管理员封禁 */
@@ -940,21 +1009,38 @@ public class TutorialPlatformController {
             return Result.error("403", "仅管理员可操作");
         }
         Long tutorialId = toLong(body.get("tutorialId"));
-        if (tutorialId == null) {
-            return Result.error(ResultCode.PARAM_LOST_ERROR.code, "tutorialId 不能为空");
+        Integer targetStatus = body.get("targetStatus") == null ? null : toInt(body.get("targetStatus"), -1);
+        if (tutorialId == null || targetStatus == null || (targetStatus != 2 && targetStatus != 3)) {
+            return Result.error(ResultCode.PARAM_LOST_ERROR.code, "tutorialId/targetStatus 非法");
         }
-        jdbcTemplate.update("update tp_tutorial set status=3 where id=? and status<>5", tutorialId);
+        jdbcTemplate.update("update tp_tutorial set status=? where id=? and status<>5", targetStatus, tutorialId);
         return Result.success();
     }
 
-    @GetMapping("/admin/tutorials")
-    public Result adminTutorials(@RequestParam Long adminUserId) {
+                @GetMapping("/admin/tutorials")
+    public Result adminTutorials(@RequestParam Long adminUserId,
+                                 @RequestParam(required = false) String keyword,
+                                 @RequestParam(required = false) Integer status) {
         if (!isAdmin(adminUserId)) {
             return Result.error("403", "仅管理员可访问");
         }
-        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+        StringBuilder sql = new StringBuilder(
                 "select t.id,t.title,t.status,t.difficulty_level,t.production_time_minutes,t.hot_score,t.created_at,u.nickname as author_name " +
-                        "from tp_tutorial t left join tp_user u on t.author_user_id=u.id where t.status<>5 order by t.id desc");
+                "from tp_tutorial t left join tp_user u on t.author_user_id=u.id where t.status<>5");
+        List<Object> params = new ArrayList<>();
+        if (StrUtil.isNotBlank(keyword)) {
+            String kw = keyword.trim();
+            sql.append(" and (t.id=? or t.title like ? or u.nickname like ?)");
+            params.add(kw);
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+        }
+        if (status != null) {
+            sql.append(" and t.status=?");
+            params.add(status);
+        }
+        sql.append(" order by t.id desc");
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql.toString(), params.toArray());
         return Result.success(list);
     }
 
@@ -968,12 +1054,12 @@ public class TutorialPlatformController {
         if (postId == null) {
             return Result.error(ResultCode.PARAM_LOST_ERROR.code, "postId 不能为空");
         }
-        jdbcTemplate.update("update tp_community_post set status=3 where id=?", postId);
-        jdbcTemplate.update("update tp_community_post_comment set status=2 where post_id=?", postId);
+                jdbcTemplate.update("update tp_community_post set status=3 where id=?", postId);
+        jdbcTemplate.update("update tp_community_post_comment set status=2 where post_id=? and status=1", postId);
         return Result.success();
     }
 
-    /** 帖子状态：1正常 2违规 3已删除 */
+    /** 帖子：status=1正常/2违规/3物理删除(含评论) */
     @PostMapping("/admin/post/set-status")
     public Result adminPostSetStatus(@RequestBody Map<String, Object> body) {
         Long adminUserId = toLong(body.get("adminUserId"));
@@ -985,45 +1071,156 @@ public class TutorialPlatformController {
         if (postId == null || status == null || (status != 1 && status != 2 && status != 3)) {
             return Result.error(ResultCode.PARAM_LOST_ERROR.code, "postId/status 非法");
         }
+                if (status == 3) {
+                    jdbcTemplate.update("update tp_community_post_comment set status=2 where post_id=? and status=1", postId);
+            jdbcTemplate.update("update tp_community_post set status=3 where id=?", postId);
+            return Result.success();
+        }
         jdbcTemplate.update("update tp_community_post set status=? where id=?", status, postId);
         return Result.success();
     }
 
-    @GetMapping("/admin/posts")
-    public Result adminPosts(@RequestParam Long adminUserId) {
+                @GetMapping("/admin/posts")
+    public Result adminPosts(@RequestParam Long adminUserId,
+                             @RequestParam(required = false) String keyword,
+                             @RequestParam(required = false) Integer status) {
         if (!isAdmin(adminUserId)) {
             return Result.error("403", "仅管理员可访问");
+        }
+        StringBuilder sql = new StringBuilder(
+                "select p.id,p.title,p.status,p.view_count,p.comment_count,p.hot_score,p.created_at,u.nickname as author_name " +
+                "from tp_community_post p left join tp_user u on p.author_user_id=u.id where p.status<>3");
+        List<Object> params = new ArrayList<>();
+        if (StrUtil.isNotBlank(keyword)) {
+            String kw = keyword.trim();
+            sql.append(" and (p.id=? or p.title like ? or u.nickname like ?)");
+            params.add(kw);
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+        }
+                if (status != null) {
+            sql.append(" and p.status=?");
+            params.add(status);
+        }
+        sql.append(" order by p.id desc");
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        return Result.success(list);
+    }
+
+                @GetMapping("/admin/post-comments")
+    public Result adminPostComments(@RequestParam Long adminUserId,
+                                    @RequestParam(required = false) String keyword,
+                                    @RequestParam(required = false) Integer status) {
+        if (!isAdmin(adminUserId)) {
+            return Result.error("403", "仅管理员可访问");
+        }
+        StringBuilder sql = new StringBuilder(
+                "select c.id,c.post_id,c.content,c.status,c.created_at,u.nickname as user_name," +
+                "p.title as post_title from tp_community_post_comment c " +
+                "left join tp_user u on c.user_id=u.id " +
+                "left join tp_community_post p on c.post_id=p.id where p.status<>3 and c.status<>3");
+        List<Object> params = new ArrayList<>();
+        if (StrUtil.isNotBlank(keyword)) {
+            String kw = keyword.trim();
+            sql.append(" and (c.content like ? or p.title like ? or u.nickname like ?)");
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+        }
+        if (status != null) {
+            sql.append(" and c.status=?");
+            params.add(status);
+        }
+        sql.append(" order by c.id desc");
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        return Result.success(list);
+    }
+
+        /** 帖子评论：1正常 2违规 */
+    /** 教程评论：1正常 2违规 */
+        @GetMapping("/admin/tutorial-comments")
+    public Result adminTutorialComments(@RequestParam Long adminUserId,
+                                        @RequestParam(required = false) String keyword,
+                                        @RequestParam(required = false) Integer status) {
+        if (!isAdmin(adminUserId)) {
+            return Result.error("403", "仅管理员可访问");
+        }
+        StringBuilder sql = new StringBuilder(
+                "select c.id,c.tutorial_id,t.title as tutorial_title,c.content,c.status,c.created_at,u.nickname as user_name " +
+                "from tp_tutorial_comment c " +
+                "left join tp_user u on c.user_id=u.id " +
+                "left join tp_tutorial t on c.tutorial_id=t.id where c.status<>3");
+        List<Object> params = new ArrayList<>();
+        if (StrUtil.isNotBlank(keyword)) {
+            String kw = keyword.trim();
+            sql.append(" and (c.content like ? or t.title like ? or u.nickname like ?)");
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+            params.add("%" + kw + "%");
+        }
+        if (status != null) {
+            sql.append(" and c.status=?");
+            params.add(status);
+        }
+        sql.append(" order by c.id desc");
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        return Result.success(list);
+    }
+
+    /** 教程评论：1正常 2违规 */
+    @PostMapping("/admin/tutorial-comment/set-status")
+    public Result adminTutorialCommentSetStatus(@RequestBody Map<String, Object> body) {
+        Long adminUserId = toLong(body.get("adminUserId"));
+        if (!isAdmin(adminUserId)) {
+            return Result.error("403", "仅管理员可操作");
+        }
+        Long commentId = toLong(body.get("commentId"));
+        Integer status = body.get("status") == null ? null : toInt(body.get("status"), -1);
+        if (commentId == null || status == null || (status != 1 && status != 2)) {
+            return Result.error(ResultCode.PARAM_LOST_ERROR.code, "commentId/status 非法");
         }
         List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "select p.id,p.title,p.status,p.view_count,p.comment_count,p.hot_score,p.created_at,u.nickname as author_name " +
-                        "from tp_community_post p left join tp_user u on p.author_user_id=u.id order by p.id desc");
-        return Result.success(list);
+                "select id,tutorial_id,status from tp_tutorial_comment where id=?", commentId);
+        if (list.isEmpty()) {
+            return Result.error("404", "评论不存在");
+        }
+        int old = toInt(list.get(0).get("status"), 2);
+        Long tutorialId = toLong(list.get(0).get("tutorial_id"));
+        jdbcTemplate.update("update tp_tutorial_comment set status=? where id=?", status, commentId);
+        if (old == 1 && status == 2) {
+            jdbcTemplate.update("update tp_tutorial set comment_count=if(comment_count>0,comment_count-1,0) where id=?", tutorialId);
+        } else if (old == 2 && status == 1) {
+            jdbcTemplate.update("update tp_tutorial set comment_count=comment_count+1 where id=?", tutorialId);
+        }
+        return Result.success();
     }
 
-    @GetMapping("/admin/post-comments")
-    public Result adminPostComments(@RequestParam Long adminUserId, @RequestParam(required = false) Long postId) {
+    /** 管理员删除教程评论 */
+    @PostMapping("/admin/tutorial-comment/remove")
+    public Result adminRemoveTutorialComment(@RequestBody Map<String, Object> body) {
+        Long adminUserId = toLong(body.get("adminUserId"));
         if (!isAdmin(adminUserId)) {
-            return Result.error("403", "仅管理员可访问");
+            return Result.error("403", "仅管理员可操作");
         }
-        List<Map<String, Object>> list;
-        if (postId == null) {
-            list = jdbcTemplate.queryForList(
-                    "select c.id,c.post_id,p.title as post_title,c.user_id,u.nickname as user_name,c.content,c.parent_comment_id,c.status,c.created_at " +
-                            "from tp_community_post_comment c " +
-                            "left join tp_community_post p on c.post_id=p.id " +
-                            "left join tp_user u on c.user_id=u.id " +
-                            "order by c.id desc");
-        } else {
-            list = jdbcTemplate.queryForList(
-                    "select c.id,c.post_id,p.title as post_title,c.user_id,u.nickname as user_name,c.content,c.parent_comment_id,c.status,c.created_at " +
-                            "from tp_community_post_comment c " +
-                            "left join tp_community_post p on c.post_id=p.id " +
-                            "left join tp_user u on c.user_id=u.id " +
-                            "where c.post_id=? order by c.id desc", postId);
+        Long commentId = toLong(body.get("commentId"));
+        if (commentId == null) {
+            return Result.error(ResultCode.PARAM_LOST_ERROR.code, "commentId 不能为空");
         }
-        return Result.success(list);
+                List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select id,tutorial_id,status from tp_tutorial_comment where id=? and status<>3", commentId);
+        if (list.isEmpty()) {
+            return Result.error("404", "评论不存在或已删除");
+        }
+        Long tutorialId = toLong(list.get(0).get("tutorial_id"));
+        int old = toInt(list.get(0).get("status"), 2);
+        jdbcTemplate.update("update tp_tutorial_comment set status=3 where id=?", commentId);
+        if (old == 1) {
+            jdbcTemplate.update("update tp_tutorial set comment_count=if(comment_count>0,comment_count-1,0) where id=?", tutorialId);
+        }
+        return Result.success();
     }
 
+    /** 管理员删除帖子评论 */
     @PostMapping("/admin/post-comment/remove")
     public Result adminRemovePostComment(@RequestBody Map<String, Object> body) {
         Long adminUserId = toLong(body.get("adminUserId"));
@@ -1034,22 +1231,20 @@ public class TutorialPlatformController {
         if (commentId == null) {
             return Result.error(ResultCode.PARAM_LOST_ERROR.code, "commentId 不能为空");
         }
-        List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "select id,post_id,status from tp_community_post_comment where id=?", commentId);
+                List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select id,post_id,status from tp_community_post_comment where id=? and status<>3", commentId);
         if (list.isEmpty()) {
-            return Result.error("404", "评论不存在");
+            return Result.error("404", "评论不存在或已删除");
         }
-        Map<String, Object> comment = list.get(0);
-        if (toInt(comment.get("status"), 2) != 1) {
-            return Result.success();
+        Long postId = toLong(list.get(0).get("post_id"));
+        int old = toInt(list.get(0).get("status"), 2);
+        jdbcTemplate.update("update tp_community_post_comment set status=3 where id=?", commentId);
+        if (old == 1) {
+            jdbcTemplate.update("update tp_community_post set comment_count=if(comment_count>0,comment_count-1,0) where id=?", postId);
         }
-        Long postId = toLong(comment.get("post_id"));
-        jdbcTemplate.update("update tp_community_post_comment set status=2 where id=?", commentId);
-        jdbcTemplate.update("update tp_community_post set comment_count=if(comment_count>0,comment_count-1,0) where id=?", postId);
         return Result.success();
     }
 
-    /** 帖子评论：1正常 2违规 */
     @PostMapping("/admin/post-comment/set-status")
     public Result adminPostCommentSetStatus(@RequestBody Map<String, Object> body) {
         Long adminUserId = toLong(body.get("adminUserId"));
@@ -1131,7 +1326,7 @@ public class TutorialPlatformController {
                         "from tp_material_kit k " +
                         "left join tp_tutorial t on k.tutorial_id=t.id " +
                         "left join tp_user u on k.seller_user_id=u.id " +
-                        "where k.status<>4 order by k.id desc");
+                        "where k.status<>4 and t.status=2 order by k.id desc");
         return Result.success(list);
     }
 

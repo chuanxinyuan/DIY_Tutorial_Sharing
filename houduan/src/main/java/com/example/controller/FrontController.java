@@ -205,9 +205,9 @@ return Result.success(dingdanService.add(dingdan));
      */
     @PostMapping("/addCollect")
     public Result addCollect(@RequestBody Collect collect) {
-        Collect collect1 = collectService.add(collect);
+                Collect collect1 = collectService.add(collect);
         if(collect1  == null){
-            return Result.success("请勿重复收藏");
+            return Result.error("1002", "请勿重复收藏");
         }
         return Result.success();
     }

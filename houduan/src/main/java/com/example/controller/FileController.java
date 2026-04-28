@@ -72,8 +72,8 @@ public class FileController {
         }
     }
 
-    @PostMapping("/uploadwenjian")
-    public Result uploadwenjian(MultipartFile file, HttpServletRequest request) throws IOException {
+        @PostMapping("/uploadwenjian")
+    public Result uploadWenjian(MultipartFile file, HttpServletRequest request) throws IOException {
         String originName = file.getOriginalFilename();
         if (originName == null) {
             return Result.error("1001", "文件名不能为空");
@@ -98,8 +98,8 @@ public class FileController {
     }
 	
 	
-    @PostMapping("/front/uploadwenjian")
-    public Result uploadwenjian(MultipartFile file) throws IOException {
+        @PostMapping("/front/uploadwenjian")
+    public Result uploadWenjianFront(MultipartFile file) throws IOException {
         String originName = file.getOriginalFilename();
         if (originName == null) {
             return Result.error("1001", "文件名不能为空");

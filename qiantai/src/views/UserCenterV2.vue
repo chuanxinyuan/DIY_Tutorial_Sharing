@@ -6,27 +6,15 @@
       <div v-if="user" class="wallet-banner">
         <div class="wallet-item wallet-balance-row">
           <span class="wallet-label">我的余额</span>
-          <span
-            v-if="!walletEditing"
-            class="wallet-value wallet-balance-text"
-            @dblclick="startWalletEdit"
-          >¥ {{ formatMoney(user.wallet_balance) }}</span>
-          <el-input
-            v-else
-            ref="walletInput"
-            v-model="walletEditValue"
-            class="wallet-balance-input"
-            size="medium"
-            :disabled="walletSaving"
-            @blur="commitWalletEdit"
-            @keyup.enter.native="onWalletEnterKey"
-            @keyup.esc.native="cancelWalletEdit"
-          />
+          <div class="wallet-value-row">
+            <span class="wallet-value wallet-balance-text">¥ {{ formatMoney(user.wallet_balance) }}</span>
+            <el-button type="primary" size="mini" icon="el-icon-coin" @click="openRechargeDialog">充值</el-button>
+          </div>
         </div>
         <div class="wallet-item">
-          <span class="wallet-label">累计收益</span>
+          <span class="wallet-label">预计收益</span>
           <span class="wallet-value earnings">¥ {{ formatMoney(user.total_earnings) }}</span>
-          <span class="wallet-hint">（作为卖家成交材料包累计入账）</span>
+          <span class="wallet-hint">（卖出材料包所得，买家确认收货后转入余额）</span>
         </div>
       </div>
       <!-- 账号管理：从顶部「设置」或双击头像/昵称进入，不再占用 Tab 标签 -->
@@ -256,6 +244,21 @@
       <span slot="footer"><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="saveTutorial">保存</el-button></span>
     </el-dialog>
 
+    <el-dialog title="模拟充值" :visible.sync="rechargeVisible" width="400px" append-to-body @closed="rechargeAmount = '';rechargeSubmitting = false">
+      <div style="text-align:center">
+        <div style="font-size:48px;color:#10b981;margin:16px 0">
+          <i class="el-icon-coin" style="font-size:48px" />
+        </div>
+        <p>当前余额：¥ {{ formatMoney(user.wallet_balance) }}</p>
+        <el-input-number v-model="rechargeAmount" :min="0.01" :step="100" :precision="2" style="width:260px;margin-top:12px" placeholder="请输入充值金额" controls-position="right" />
+        <p style="margin-top:16px;color:#909399;font-size:12px">预计余额：¥ {{ rechargePreview }}</p>
+      </div>
+      <span slot="footer">
+        <el-button @click="rechargeVisible = false">取消</el-button>
+        <el-button type="primary" :loading="rechargeSubmitting" @click="confirmRecharge">确认充值</el-button>
+      </span>
+    </el-dialog>
+
     <el-dialog title="订单详情" :visible.sync="orderDetailVisible" width="520px" append-to-body @closed="orderDetail = null">
       <div v-if="orderDetail" class="order-detail-body">
         <img
@@ -298,6 +301,9 @@ export default {
       editSource: null,
       defaultFavCover: '/api/files/download/31',
       registerLoading: false,
+      rechargeVisible: false,
+      rechargeAmount: '',
+      rechargeSubmitting: false,
       walletEditing: false,
       walletEditValue: '',
       walletSaving: false,
@@ -316,6 +322,11 @@ export default {
       if (!this.orderDetail) return ''
       const c = this.orderDetail.cover_image_snapshot || this.orderDetail.tutorial_cover_live
       return c ? '/api' + c : ''
+    },
+    rechargePreview() {
+      const cur = parseFloat(this.user ? this.user.wallet_balance : 0) || 0
+      const add = parseFloat(this.rechargeAmount) || 0
+      return (cur + add).toFixed(2)
     }
   },
   watch: {
@@ -695,6 +706,39 @@ export default {
           this.refreshAll()
         })
       })
+    },
+    openRechargeDialog() {
+      if (!this.user) return
+      this.rechargeAmount = ''
+      this.rechargeVisible = true
+    },
+    confirmRecharge() {
+      if (!this.user || this.rechargeSubmitting) return
+      const add = parseFloat(this.rechargeAmount)
+      if (isNaN(add) || add <= 0) {
+        this.$message.warning('请输入有效的充值金额')
+        return
+      }
+      const cur = parseFloat(this.user.wallet_balance) || 0
+      const newBalance = cur + add
+      this.rechargeSubmitting = true
+      this.$axios
+        .put('/api/front/v2/user/wallet', { userId: this.user.id, balance: newBalance })
+        .then(res => {
+          if (!res.data || res.data.code !== '0') {
+            this.$message.error((res.data && res.data.msg) || '充值失败')
+            return
+          }
+          this.$message.success('充值成功！余额已更新')
+          this.rechargeVisible = false
+          return this.syncTpUserFromServer().then(() => this.loadCenter())
+        })
+        .catch(() => {
+          this.$message.error('网络异常，请稍后重试')
+        })
+        .finally(() => {
+          this.rechargeSubmitting = false
+        })
     },
     updateOrder(order, status) {
       this.$axios.post('/api/front/v2/order/' + order.id + '/status', { userId: this.user.id, status }).then(res => {

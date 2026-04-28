@@ -16,12 +16,18 @@ public class GlobalExceptionHandler {
 
 
     //统一异常处理@ExceptionHandler,主要用于Exception
-    @ExceptionHandler(Exception.class)
-    @ResponseBody//返回json串
-    public Result error(HttpServletRequest request, Exception e){
-        log.error("异常信息：",e);
-        return Result.error();
-    }
+        @ExceptionHandler(Exception.class)
+        @ResponseBody//返回json串
+        public Result error(HttpServletRequest request, Exception e){
+            log.error("异常信息：",e);
+            String msg = e.getMessage();
+            if (msg == null || msg.isEmpty()) {
+                msg = "系统异常：" + e.getClass().getSimpleName();
+            } else {
+                msg = "系统异常：" + msg;
+            }
+            return Result.error("-1", msg);
+        }
 
     @ExceptionHandler(CustomException.class)
     @ResponseBody//返回json串

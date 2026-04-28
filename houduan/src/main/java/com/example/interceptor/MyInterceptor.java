@@ -37,17 +37,26 @@ public class MyInterceptor implements HandlerInterceptor {
                 makeResponse(resp, Result.error("-1", "请携带token"));
                 return false;
             }
-            Result returnData = JwtUtil.valid(token);
-            if (returnData.getCode().equals("0")) {
+                        Result returnData = JwtUtil.valid(token);
+            // 令牌验证通过
+            if ("0".equals(returnData.getCode())) {
                 return true;
             }
-            Long id = (Long) returnData.getData();
-            if (id == null) {
-                makeResponse(resp, Result.error("-1", "token有误"));
+            // 令牌过期或无效——检查有效载荷是否包含 ID（用于区分"登录过期"与"token有误"）
+            Object dataObj = returnData.getData();
+            if (dataObj instanceof Long) {
+                Long id = (Long) dataObj;
+                if (id == null) {
+                    makeResponse(resp, Result.error("-1", "token有误"));
+                    return false;
+                }
+                // ID 存在但代码不是 "0" => 过期
+                makeResponse(resp, returnData);
                 return false;
             }
-
-        return true;
+            // 没有有效数据 => 无效令牌
+            makeResponse(resp, Result.error("-1", "token有误"));
+            return false;
     }
     private void makeResponse(HttpServletResponse resp, Result returnData) {
         try {

@@ -38,11 +38,11 @@
       </el-form>
     </el-card>
 
-    <el-row :gutter="16" style="margin-top: 16px;">
-      <el-col :span="8" v-for="item in list" :key="item.id" style="margin-bottom: 16px">
+    <div class="tutorial-masonry" style="margin-top: 16px;">
+      <div class="masonry-item" v-for="item in list" :key="item.id">
         <tutorial-case-card :item="item" :default-cover="defaultCover" @preview="openTutorialDetail" />
-      </el-col>
-    </el-row>
+      </div>
+    </div>
 
     <el-pagination
       background
@@ -125,4 +125,20 @@ export default {
 .tp-page { padding: 10px 20px; }
 .tp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .tp-actions { display: flex; gap: 8px; align-items: center; }
+/* 瀑布流布局：取消等高，自然排列 */
+.tutorial-masonry {
+  column-count: 3;
+  column-gap: 16px;
+}
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 16px;
+}
+/* 响应式 */
+@media (max-width: 992px) {
+  .tutorial-masonry { column-count: 2; }
+}
+@media (max-width: 576px) {
+  .tutorial-masonry { column-count: 1; }
+}
 </style>

@@ -25,8 +25,11 @@ public class JwtUtil {
     private static final byte[] secret = "modhfaguafdkslsmxofangsnhpobcewm".getBytes();
 
 
-    //生成一个token
+        //生成一个token，默认7天过期
     public static String creatToken(Map<String, Object> payloadMap) {
+        // 设置过期时间：当前时间 + 7天
+        long expTime = new Date().getTime() + 7 * 24 * 60 * 60 * 1000L;
+        payloadMap.put("exp", expTime);
 
         //3.先建立一个头部Header
         /**
@@ -50,7 +53,7 @@ public class JwtUtil {
             //签名
             jwsObject.sign(jwsSigner);
         } catch (JOSEException e) {
-            throw new CustomException("200","toke生成失败");
+            throw new CustomException("200","token生成失败");
         }
         //生成token
         return jwsObject.serialize();

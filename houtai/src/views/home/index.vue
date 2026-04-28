@@ -66,26 +66,11 @@
       <el-col :xs="24" :lg="12">
         <el-card shadow="never">
           <div slot="header" class="panel-title">待处理风险提醒</div>
-          <el-alert
-            :title="`禁用账号：${stats.disabledUserCount} 个`"
-            type="warning"
-            :closable="false"
-            show-icon
-            style="margin-bottom: 10px;"
-          />
-          <el-alert
-            :title="`已下架/删除材料包：${stats.offlineKitCount} 个`"
-            type="info"
-            :closable="false"
-            show-icon
-            style="margin-bottom: 10px;"
-          />
-          <el-alert
-            :title="`已删除帖子：${stats.deletedPostCount} 个`"
-            type="error"
-            :closable="false"
-            show-icon
-          />
+          <el-alert :title="`禁用账号：${stats.disabledUserCount} 个`" type="warning" :closable="false" show-icon style="margin-bottom:8px" />
+          <el-alert :title="`已删除违规教程：${stats.deletedTutorialCount} 个`" type="error" :closable="false" show-icon style="margin-bottom:8px" />
+          <el-alert :title="`已删除违规帖子：${stats.deletedPostCount} 个`" type="error" :closable="false" show-icon style="margin-bottom:8px" />
+          <el-alert :title="`已删除违规评论：${stats.deletedCommentCount} 条（教程评论+帖子评论）`" type="error" :closable="false" show-icon style="margin-bottom:8px" />
+          <el-alert :title="`已删除违规材料包：${stats.deletedKitCount} 个`" type="error" :closable="false" show-icon style="margin-bottom:8px" />
         </el-card>
       </el-col>
     </el-row>
@@ -95,11 +80,7 @@
 <script>
 import { Session } from '@/utils/storage';
 import {
-  tpAdminUsers,
-  tpAdminTutorials,
-  tpAdminPosts,
-  tpAdminKits,
-  tpAdminPostComments
+  tpAdminDashboardStats
 } from '@/api/tpadmin/tpAdminApi';
 
 export default {
@@ -110,11 +91,13 @@ export default {
         userCount: 0,
         disabledUserCount: 0,
         tutorialCount: 0,
+        deletedTutorialCount: 0,
         postCount: 0,
         deletedPostCount: 0,
         commentCount: 0,
+        deletedCommentCount: 0,
         kitCount: 0,
-        offlineKitCount: 0
+        deletedKitCount: 0
       },
       topPosts: []
     }
@@ -129,33 +112,21 @@ export default {
     },
     loadOverview() {
       const adminUserId = this.adminUserId();
-      Promise.all([
-        tpAdminUsers(adminUserId),
-        tpAdminTutorials(adminUserId),
-        tpAdminPosts(adminUserId),
-        tpAdminPostComments(adminUserId),
-        tpAdminKits(adminUserId)
-      ]).then(([usersRes, tutorialsRes, postsRes, commentsRes, kitsRes]) => {
-        const users = usersRes.data || [];
-        const tutorials = tutorialsRes.data || [];
-        const posts = postsRes.data || [];
-        const comments = commentsRes.data || [];
-        const kits = kitsRes.data || [];
-
-        this.stats.userCount = users.length;
-        this.stats.disabledUserCount = users.filter(u => Number(u.status) === 0).length;
-        this.stats.tutorialCount = tutorials.length;
-        this.stats.postCount = posts.filter(p => Number(p.status) !== 3).length;
-        this.stats.deletedPostCount = posts.filter(p => Number(p.status) === 3).length;
-        this.stats.commentCount = comments.filter(c => Number(c.status) === 1).length;
-        this.stats.kitCount = kits.length;
-        this.stats.offlineKitCount = kits.filter(k => Number(k.status) !== 1).length;
-
-        this.topPosts = posts
-          .filter(p => Number(p.status) !== 3)
-          .sort((a, b) => Number(b.hot_score || 0) - Number(a.hot_score || 0))
-          .slice(0, 8);
-      });
+      if (!adminUserId) return;
+      tpAdminDashboardStats(adminUserId).then(res => {
+        const data = res.data || {};
+        this.stats.userCount = data.userCount || 0;
+        this.stats.disabledUserCount = data.disabledUserCount || 0;
+        this.stats.tutorialCount = data.tutorialCount || 0;
+        this.stats.deletedTutorialCount = data.deletedTutorialCount || 0;
+        this.stats.postCount = data.postCount || 0;
+        this.stats.deletedPostCount = data.deletedPostCount || 0;
+        this.stats.commentCount = data.commentCount || 0;
+        this.stats.deletedCommentCount = data.deletedCommentCount || 0;
+        this.stats.kitCount = data.kitCount || 0;
+        this.stats.deletedKitCount = data.deletedKitCount || 0;
+        this.topPosts = data.hotPosts || [];
+      }).catch(() => {});
     }
   }
 }
